@@ -1,6 +1,10 @@
-import { Audio } from "expo-av";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
+
+import {
+  configureAudioMode,
+  playWorkoutSound,
+} from "@/src/lib/helper-functions/sound-helper";
 import { WorkoutPlayerScreen } from "../../screens/WorkoutPlayerScreen";
 import { useWorkoutStore } from "../../store/useWorkoutStore";
 import { Exercise, Workout } from "../../types/workout";
@@ -15,6 +19,7 @@ export default function ActiveWorkoutRoute() {
     [id],
   );
 
+  // Player State
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentSet, setCurrentSet] = useState(1);
   const [currentRound, setCurrentRound] = useState(1);
@@ -32,55 +37,40 @@ export default function ActiveWorkoutRoute() {
     [workout, currentIndex],
   );
 
-  // Sound Helper
-  const playSound = async (type: "tick" | "bell" | "triple-bell") => {
-    if (isMuted) return;
-    try {
-      const soundFile =
-        type === "tick"
-          ? require("../../assets/sounds/tick.mp3")
-          : require("../../assets/sounds/bell.mp3");
+  // Audio Initialization
+  useEffect(() => {
+    configureAudioMode();
+  }, []);
 
-      const { sound } = await Audio.Sound.createAsync(soundFile);
-
-      if (type === "triple-bell") {
-        await sound.playAsync();
-        setTimeout(() => sound.replayAsync(), 200);
-        setTimeout(() => sound.replayAsync(), 400);
-      } else {
-        await sound.playAsync();
-      }
-
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) sound.unloadAsync();
-      });
-    } catch (e) {
-      console.log("Audio Error", e);
-    }
-  };
-
+  // Timer and Sound Logic
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     const isRepsMode = currentExercise?.reps_mode;
 
     if (isActive) {
-      // Logic for Ticking (3s) and Bell (0s)
-      if (timeLeft <= 3 && timeLeft > 0) {
-        const isCountdown = status !== "GO" || !isRepsMode;
-        if (isCountdown) playSound("tick");
+      // 1. Tick Sound (10 seconds left in GO phase)
+      if (status === "GO" && !isRepsMode && timeLeft === 10) {
+        playWorkoutSound("tick", isMuted);
       }
-      if (timeLeft === 0) playSound("bell");
-      if (status === "GO" && !isRepsMode && timeLeft === 10)
-        playSound("triple-bell");
+
+      // 2. Bell Sound (3, 2, 1, and 0)
+      if (timeLeft <= 3 && timeLeft >= 1) {
+        const isCountdownPhase = status !== "GO" || !isRepsMode;
+        if (isCountdownPhase) {
+          playWorkoutSound("bell", isMuted);
+        }
+      }
     }
 
     const shouldCountDown =
       isActive && timeLeft > 0 && (status !== "GO" || !isRepsMode);
+
     if (shouldCountDown) {
       interval = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     } else if (timeLeft === 0 && isActive && (status !== "GO" || !isRepsMode)) {
       handlePhaseTransition();
     }
+
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -103,6 +93,8 @@ export default function ActiveWorkoutRoute() {
     const time = currentExercise.reps_mode ? 0 : parseInt(currentExercise.time);
     setTimeLeft(time);
     setTotalTimeForPhase(time || 1);
+
+    playWorkoutSound("triple-bell", isMuted);
   };
 
   const startRestPhase = () => {
@@ -111,6 +103,8 @@ export default function ActiveWorkoutRoute() {
     const time = parseInt(currentExercise.rest);
     setTimeLeft(time);
     setTotalTimeForPhase(time || 1);
+
+    playWorkoutSound("triple-bell", isMuted);
   };
 
   const handleNextExercise = () => {
@@ -118,11 +112,18 @@ export default function ActiveWorkoutRoute() {
     if (currentIndex < workout.exercises.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setCurrentSet(1);
-      setStatus("GO"); // Skip Get Ready for subsequent moves
+      setStatus("GO"); // Subsequent exercises skip initial "Get Ready"
     } else {
-      const rounds = parseInt(workout.rounds);
-      if (currentRound < rounds) triggerNextRound();
-      else router.back();
+      const totalRounds = parseInt(workout.rounds || "1");
+      if (currentRound < totalRounds) {
+        triggerNextRound();
+      } else {
+        setIsActive(false);
+        router.push({
+          pathname: "/workout-summary",
+          params: { workoutName: workout.name },
+        });
+      }
     }
   };
 
@@ -135,6 +136,7 @@ export default function ActiveWorkoutRoute() {
       setCurrentSet(1);
       setStatus("GET READY");
       setTimeLeft(5);
+      setTotalTimeForPhase(5);
       setShowRoundBreak(false);
       setIsActive(true);
     }, 3500);
@@ -144,7 +146,15 @@ export default function ActiveWorkoutRoute() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          animation: "slide_from_bottom",
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+        }}
+      />
       <WorkoutPlayerScreen
         workout={workout}
         currentExercise={currentExercise}
@@ -161,7 +171,10 @@ export default function ActiveWorkoutRoute() {
         isMuted={isMuted}
         onToggleMute={() => setIsMuted(!isMuted)}
         showRoundBreak={showRoundBreak}
-        onBack={() => router.back()}
+        onBack={() => {
+          setIsActive(false);
+          router.back();
+        }}
         onPause={() => setIsActive(!isActive)}
         onNext={handlePhaseTransition}
         onPrev={() => {}}

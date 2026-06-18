@@ -1,7 +1,8 @@
 import { useAuth } from "@/src/hooks/useAuth";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Colors from "../../constants/Colors";
 import { supabase } from "../../lib/supabase"; //
 
@@ -33,29 +34,14 @@ export const Header = () => {
       if (error) throw error;
 
       if (data?.name) {
-        const nameParts = data.name.trim().split(" ");
-        setFirstName(nameParts[0]);
+        const nameParts: string = data.name.trim().split(" ");
+        setFirstName(nameParts[0].toUpperCase());
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure you want to exit your session?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          const { error } = await supabase.auth.signOut(); //
-          if (error) console.error("Error signing out:", error.message);
-          // The Root Layout Auth Guard will handle the redirect automatically!
-        },
-      },
-    ]);
   };
 
   return (
@@ -79,6 +65,7 @@ export const Header = () => {
             name="notifications-outline"
             size={24}
             color={Colors.textPrimary}
+            onPress={() => router.push("/notifications")}
           />
         </TouchableOpacity>
         <TouchableOpacity style={styles.btn} onPress={logout}>

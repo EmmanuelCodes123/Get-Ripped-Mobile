@@ -18,12 +18,10 @@ export interface Workout {
   categories: string[];
   exercises: Exercise[];
   created_at: string;
-  updated_at?: string; // Added for edit tracking
+  updated_at?: string;
   is_synced: boolean;
 }
 
-// These "Draft" types allow the frontend to send data
-// without needing the DB-generated fields like UUIDs yet.
 export type ExerciseDraft = Omit<
   Exercise,
   "id" | "workout_id" | "order_index"

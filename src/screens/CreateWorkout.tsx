@@ -1,14 +1,16 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router"; // Added Stack import
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   UIManager,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -22,6 +24,8 @@ import { useToastStore } from "../store/useToastStore";
 import { useWorkoutStore } from "../store/useWorkoutStore";
 import { Exercise } from "../types/workout";
 
+import { ScrollView } from "react-native-gesture-handler";
+
 if (
   Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -32,7 +36,7 @@ if (
 const CreateWorkout = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const id = params.id as string; // Explicitly cast id
+  const id = params.id as string;
 
   const { addWorkout, updateWorkout, workouts } = useWorkoutStore();
   const { showToast } = useToastStore();
@@ -41,7 +45,7 @@ const CreateWorkout = () => {
   const [workout, setWorkout] = useState({
     name: "",
     rounds: "1",
-    categories: ["Full Body"],
+    categories: ["Arms"],
     exercises: [
       {
         id: Date.now(),
@@ -55,13 +59,11 @@ const CreateWorkout = () => {
     ],
   });
 
-  // 1. Fetch User & Hydrate Data for Editing
   useEffect(() => {
     const init = async () => {
       const user = await getUser();
       if (user) setUserId(user.id);
 
-      // If we have an ID, load that workout's data into state
       if (id) {
         const existing = workouts.find((w) => w.id === id);
         if (existing) {
@@ -71,7 +73,7 @@ const CreateWorkout = () => {
             categories: existing.categories,
             exercises: existing.exercises.map((ex: any) => ({
               ...ex,
-              id: ex.id || Date.now() + Math.random(), // Ensure local state has a unique numeric ID
+              id: ex.id || Date.now() + Math.random(),
               repsMode: ex.reps_mode,
             })),
           });
@@ -93,7 +95,7 @@ const CreateWorkout = () => {
 
   const updateExercise = (
     id: number,
-    field: keyof Exercise, // Ensures 'field' exists on an Exercise
+    field: keyof Exercise,
     value: string | boolean | number,
   ) => {
     setWorkout((prev) => ({
@@ -103,6 +105,7 @@ const CreateWorkout = () => {
       ),
     }));
   };
+
   const addExercise = () => {
     const lastEx = workout.exercises[workout.exercises.length - 1];
     const newEx = {
@@ -140,7 +143,7 @@ const CreateWorkout = () => {
       rounds: workout.rounds,
       categories: workout.categories,
       exercises: workout.exercises.map((ex) => ({
-        id: ex.id, // <--- ADD THIS LINE to keep the ID!
+        id: ex.id,
         name: ex.name,
         reps_mode: ex.repsMode,
         sets: ex.sets,
@@ -158,53 +161,95 @@ const CreateWorkout = () => {
       showToast("Successfully created a workout!", "success");
     }
 
+    // Dismiss keyboard and use requestAnimationFrame to ensure navigation is
+    // smooth and happens after state updates
+    Keyboard.dismiss();
+    requestAnimationFrame(() => {
+      router.back();
+    });
+  };
+
+  const handleClose = () => {
+    Keyboard.dismiss();
     router.back();
   };
 
+  const scrollRef = useRef<ScrollView>(null);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <WorkoutHeader
-        onSave={handleSave}
-        onClose={() => router.back()}
-        isEditMode={!!id}
+    // FIX: Outer View locks the background color so Screen B doesn't turn white during slide
+    <View style={styles.outerContainer}>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          animation: "slide_from_right",
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+          contentStyle: { backgroundColor: Colors.background }, // Native layer fix
+        }}
       />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
       >
-        <WorkoutMetadata
-          name={workout.name}
-          setName={(v) => setWorkout((p) => ({ ...p, name: v }))}
-          rounds={workout.rounds}
-          setRounds={(v) => setWorkout((p) => ({ ...p, rounds: v }))}
-          selectedCategories={workout.categories}
-          toggleCategory={toggleCategory}
-        />
-        <Text style={styles.sectionLabel}>EXERCISES</Text>
-        {workout.exercises.map((ex, idx) => (
-          <ExerciseCard
-            key={ex.id}
-            index={idx}
-            exercise={ex}
-            updateExercise={updateExercise}
-            removeExercise={removeExercise}
+        <SafeAreaView style={styles.container}>
+          <WorkoutHeader
+            onSave={handleSave}
+            onClose={handleClose}
+            isEditMode={!!id}
           />
-        ))}
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={addExercise}
-          activeOpacity={0.6}
-        >
-          <Text style={styles.addBtnText}>+ ADD EXERCISE</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+          <ScrollView
+            ref={scrollRef}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+          >
+            <WorkoutMetadata
+              name={workout.name}
+              setName={(v) => setWorkout((p) => ({ ...p, name: v }))}
+              rounds={workout.rounds}
+              setRounds={(v) => setWorkout((p) => ({ ...p, rounds: v }))}
+              selectedCategories={workout.categories}
+              toggleCategory={toggleCategory}
+            />
+            <Text style={styles.sectionLabel}>EXERCISES</Text>
+            {workout.exercises.map((ex, idx) => (
+              <ExerciseCard
+                key={ex.id}
+                index={idx}
+                exercise={ex}
+                updateExercise={updateExercise}
+                removeExercise={removeExercise}
+              />
+            ))}
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={addExercise}
+              activeOpacity={0.6}
+            >
+              <Text style={styles.addBtnText}>+ ADD EXERCISE</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { paddingHorizontal: 16, paddingBottom: 60 },
+  // Added outerContainer to prevent white flash under SafeAreaView
+  outerContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  scroll: {
+    paddingHorizontal: 16,
+    paddingBottom: 60,
+  },
   sectionLabel: {
     color: Colors.textSecondary,
     fontSize: 10,

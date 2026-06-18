@@ -55,6 +55,7 @@ export default function RootLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: Colors.background },
+          animation: "slide_from_right", // Smooth default transition for all screens
         }}
       >
         <Stack.Screen name="index" />
@@ -62,12 +63,22 @@ export default function RootLayout() {
         <Stack.Screen
           name="create-workout"
           options={{
-            presentation: "modal", // Slides up from bottom
             headerShown: false,
-            animation: "slide_from_bottom",
+            animation: "slide_from_right",
+            gestureEnabled: true,
+            fullScreenGestureEnabled: true,
+            contentStyle: { backgroundColor: Colors.background },
           }}
         />
         <Stack.Screen name="auth/confirm-email" />
+        <Stack.Screen
+          name="notifications"
+          options={{
+            headerShown: false,
+            animation: "slide_from_right",
+            contentStyle: { backgroundColor: Colors.background },
+          }}
+        />
       </Stack>
       <Toast />
     </GestureHandlerRootView>

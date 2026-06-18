@@ -13,7 +13,6 @@ export const UserWorkouts = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    // Get the currently logged in user
     getUser().then((user) => setCurrentUser(user));
   }, []);
 
@@ -21,6 +20,8 @@ export const UserWorkouts = () => {
   const userSpecificWorkouts = workouts.filter(
     (w) => w.user_id === currentUser?.id,
   );
+
+  console.log(userSpecificWorkouts);
 
   const handleDeleteRequest = (id: string, name: string) => {
     Alert.alert(
