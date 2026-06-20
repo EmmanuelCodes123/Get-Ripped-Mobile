@@ -5,11 +5,15 @@ export const signUp = async (name: string, email: string, password: string) => {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        full_name: name,
+      },
+    },
   });
 
   if (error) throw error;
 
-  // Create profile
   if (data.user) {
     const { error: profileError } = await supabase.from("user-info").insert({
       id: data.user.id,
@@ -17,12 +21,17 @@ export const signUp = async (name: string, email: string, password: string) => {
       name,
     });
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      console.error(
+        "Failed to create user-info profile:",
+        profileError.message,
+      );
+      throw profileError;
+    }
   }
 
   return data;
 };
-
 export const signIn = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,

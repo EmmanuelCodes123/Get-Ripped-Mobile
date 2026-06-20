@@ -14,7 +14,8 @@
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.emmaex.GetRippedMobile"
     },
     "web": {
       "output": "static"
@@ -33,11 +34,19 @@
           }
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ec04b9ea-eb5d-404b-8ad7-b7441a918c38"
+      }
     }
   }
 }
