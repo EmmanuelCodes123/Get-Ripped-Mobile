@@ -21,8 +21,6 @@ export const UserWorkouts = () => {
     (w) => w.user_id === currentUser?.id,
   );
 
-  console.log(userSpecificWorkouts);
-
   const handleDeleteRequest = (id: string, name: string) => {
     Alert.alert(
       "Delete Routine",

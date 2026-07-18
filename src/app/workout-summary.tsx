@@ -2,18 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import {
-    BackHandler,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  BackHandler,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "../constants/Colors";
 
 export default function WorkoutSummaryScreen() {
   const router = useRouter();
-  // Optional: Pass the workout name or total time via params to display here
   const { workoutName = "Workout" } = useLocalSearchParams<{
     workoutName: string;
   }>();
@@ -21,7 +20,7 @@ export default function WorkoutSummaryScreen() {
   // Prevent Android hardware back button from going back to the timer
   useEffect(() => {
     const onBackPress = () => {
-      router.replace("/");
+      router.navigate("/"); // FIX: Safely navigates back to root, closing the modal
       return true;
     };
     const backHandler = BackHandler.addEventListener(
@@ -32,8 +31,9 @@ export default function WorkoutSummaryScreen() {
   }, []);
 
   const handleFinish = () => {
-    // Replace clears the stack so they don't go back to the active timer
-    router.replace("/");
+    // FIX: navigate intelligently routes back to the root tab
+    // instantly destroying the modal stack in memory.
+    router.navigate("/");
   };
 
   return (
@@ -41,16 +41,14 @@ export default function WorkoutSummaryScreen() {
       <Stack.Screen
         options={{
           headerShown: false,
-          // A modal slide-up feels like a "Completion Certificate" popping up
           presentation: "modal",
           animation: "slide_from_bottom",
-          gestureEnabled: false, // Force them to use the "Done" button
+          gestureEnabled: false, 
           contentStyle: { backgroundColor: Colors.background },
         }}
       />
 
       <SafeAreaView style={styles.container}>
-        {/* Main Content Area - Centered */}
         <View style={styles.content}>
           <View style={styles.iconRing}>
             <View style={styles.iconCircle}>
@@ -63,12 +61,8 @@ export default function WorkoutSummaryScreen() {
             Great job crushing your{" "}
             <Text style={{ color: "#FFF" }}>{workoutName}</Text> session today.
           </Text>
-
-          {/* You can easily drop in stats here later like: */}
-          {/* <View style={styles.statsRow}> ... </View> */}
         </View>
 
-        {/* Bottom Action */}
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.doneBtn}
@@ -96,7 +90,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: "rgba(189, 255, 0, 0.1)", // Faint green halo
+    backgroundColor: "rgba(189, 255, 0, 0.1)", 
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 32,
@@ -105,7 +99,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.primaryGreen, // Your app's highlight color
+    backgroundColor: Colors.primaryGreen, 
     justifyContent: "center",
     alignItems: "center",
   },

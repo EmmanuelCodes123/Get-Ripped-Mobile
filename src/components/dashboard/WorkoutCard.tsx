@@ -4,6 +4,7 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Colors from "../../constants/Colors";
 import { Workout } from "../../types/workout";
+import {SymbolView} from 'expo-symbols'
 
 interface Props {
   workout: Workout;

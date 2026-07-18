@@ -4,16 +4,26 @@ import Colors from "../../constants/Colors";
 
 export const Calendar = () => {
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const today = new Date().getDay();
+  
+  const currentDate = new Date();
+  const todayIndex = currentDate.getDay(); // 0 for Sun, 1 for Mon, etc.
+
+  // Generate the actual numeric dates for the current week
+  const weekDates = days.map((_, i) => {
+    const date = new Date();
+    // Shift the date back to Sunday, then add the current loop index (i)
+    date.setDate(currentDate.getDate() - todayIndex + i);
+    return date.getDate();
+  });
 
   return (
     <View style={styles.container}>
       {days.map((day, i) => (
         <View key={day} style={styles.dayCol}>
           <Text style={styles.label}>{day}</Text>
-          <View style={[styles.ring, i === today && styles.activeRing]}>
-            <Text style={[styles.num, i === today && styles.activeText]}>
-              {13 + i}
+          <View style={[styles.ring, i === todayIndex && styles.activeRing]}>
+            <Text style={[styles.num, i === todayIndex && styles.activeText]}>
+              {weekDates[i]}
             </Text>
           </View>
         </View>

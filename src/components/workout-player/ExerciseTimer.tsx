@@ -18,6 +18,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 interface Props {
   currentExercise: Exercise;
+  nextExercise?: Exercise;
   currentSet: number;
   status: "GET READY" | "GO" | "REST";
   displayValue: string;
@@ -32,6 +33,7 @@ interface Props {
 
 export const ExerciseTimer = ({
   currentExercise,
+  nextExercise,
   currentSet,
   status,
   displayValue,
@@ -47,8 +49,6 @@ export const ExerciseTimer = ({
 
   const totalSetsNum = parseInt(currentExercise.sets || "1");
 
-  // FIXED: If status is GO and we are in reps mode, circle stays full (offset 0)
-  // Otherwise, it depletes based on percentageLeft
   const strokeDashoffset = useMemo(() => {
     const isRepsWorkPhase = status === "GO" && currentExercise.reps_mode;
     return isRepsWorkPhase ? 0 : CIRCUMFERENCE * (1 - (percentageLeft || 0));
@@ -59,6 +59,22 @@ export const ExerciseTimer = ({
     if (status === "REST") return "#FF4B4B";
     return Colors.primaryGreen;
   };
+
+  // Determine what name to show at the bottom based on the current status
+  const exerciseNameToShow = useMemo(() => {
+    if (status === "REST") {
+      if (currentSet < totalSetsNum) {
+        return currentExercise.name; // Next set of the same exercise
+      } else if (nextExercise) {
+        return nextExercise.name; // Next exercise in the list
+      } else {
+        return "Finish Routine!"; // Nothing left
+      }
+    }
+    return currentExercise.name; // During GO or GET READY
+  }, [status, currentSet, totalSetsNum, currentExercise, nextExercise]);
+
+  const showUpNextLabel = status === "REST";
 
   return (
     <View style={styles.container}>
@@ -120,8 +136,13 @@ export const ExerciseTimer = ({
       </View>
 
       <View style={styles.nameContainer}>
+        {showUpNextLabel && (
+          <Text style={styles.upNextLabel}>
+            {currentSet < totalSetsNum ? "NEXT SET" : "UP NEXT"}
+          </Text>
+        )}
         <Text style={styles.name} numberOfLines={2}>
-          {currentExercise.name}
+          {exerciseNameToShow}
         </Text>
       </View>
 
@@ -172,6 +193,13 @@ const styles = StyleSheet.create({
     minHeight: 64,
     justifyContent: "center",
     alignItems: "center",
+  },
+  upNextLabel: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 2,
+    marginBottom: 4,
   },
   name: {
     color: "#FFFFFF",

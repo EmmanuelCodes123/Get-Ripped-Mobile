@@ -1,5 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, AppState, BackHandler } from "react-native"; // <-- Added AppState
 
 import {
   configureAudioMode,
@@ -32,8 +33,16 @@ export default function ActiveWorkoutRoute() {
   const [timeLeft, setTimeLeft] = useState(5);
   const [totalTimeForPhase, setTotalTimeForPhase] = useState(5);
 
+  // --- NEW: Background Sync Refs ---
+  const appState = useRef(AppState.currentState);
+  const backgroundTime = useRef<number | null>(null);
+
   const currentExercise = useMemo<Exercise | undefined>(
     () => workout?.exercises[currentIndex],
+    [workout, currentIndex],
+  );
+  const nextExercise = useMemo<Exercise | undefined>(
+    () => workout?.exercises[currentIndex + 1],
     [workout, currentIndex],
   );
 
@@ -42,18 +51,84 @@ export default function ActiveWorkoutRoute() {
     configureAudioMode();
   }, []);
 
+  // Safe Back Button Logic
+  const handleBackPress = () => {
+    const wasActive = isActive;
+    setIsActive(false);
+
+    Alert.alert(
+      "End Workout?",
+      "Are you sure you want to quit? Your progress will be lost.",
+      [
+        {
+          text: "Resume",
+          style: "cancel",
+          onPress: () => {
+            setIsActive(wasActive);
+          },
+        },
+        {
+          text: "Quit",
+          style: "destructive",
+          onPress: () => router.back(),
+        },
+      ],
+    );
+    return true;
+  };
+
+  // Intercept Android Hardware Back Button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      handleBackPress,
+    );
+    return () => backHandler.remove();
+  }, [isActive]);
+
+  // --- NEW: AppState Background Time Sync ---
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === "active"
+      ) {
+        // App just came back to the foreground!
+        if (backgroundTime.current && isActive) {
+          const elapsedSeconds = Math.floor(
+            (Date.now() - backgroundTime.current) / 1000,
+          );
+
+          setTimeLeft((prevTime) => {
+            const newTime = prevTime - elapsedSeconds;
+            // If they were gone longer than the timer, snap it to 0
+            // The main interval below will instantly catch the 0 and transition phases!
+            return newTime <= 0 ? 0 : newTime;
+          });
+        }
+      } else if (nextAppState.match(/inactive|background/)) {
+        // App just went into the background! Stamp the time.
+        backgroundTime.current = Date.now();
+      }
+
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isActive]);
+
   // Timer and Sound Logic
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     const isRepsMode = currentExercise?.reps_mode;
 
     if (isActive) {
-      // 1. Tick Sound (10 seconds left in GO phase)
       if (status === "GO" && !isRepsMode && timeLeft === 10) {
         playWorkoutSound("tick", isMuted);
       }
 
-      // 2. Bell Sound (3, 2, 1, and 0)
       if (timeLeft <= 3 && timeLeft >= 1) {
         const isCountdownPhase = status !== "GO" || !isRepsMode;
         if (isCountdownPhase) {
@@ -112,7 +187,7 @@ export default function ActiveWorkoutRoute() {
     if (currentIndex < workout.exercises.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setCurrentSet(1);
-      setStatus("GO"); // Subsequent exercises skip initial "Get Ready"
+      setStatus("GO");
     } else {
       const totalRounds = parseInt(workout.rounds || "1");
       if (currentRound < totalRounds) {
@@ -158,6 +233,7 @@ export default function ActiveWorkoutRoute() {
       <WorkoutPlayerScreen
         workout={workout}
         currentExercise={currentExercise}
+        nextExercise={nextExercise}
         currentSet={currentSet}
         currentRound={currentRound}
         status={status}
@@ -171,10 +247,7 @@ export default function ActiveWorkoutRoute() {
         isMuted={isMuted}
         onToggleMute={() => setIsMuted(!isMuted)}
         showRoundBreak={showRoundBreak}
-        onBack={() => {
-          setIsActive(false);
-          router.back();
-        }}
+        onBack={handleBackPress}
         onPause={() => setIsActive(!isActive)}
         onNext={handlePhaseTransition}
         onPrev={() => {}}
